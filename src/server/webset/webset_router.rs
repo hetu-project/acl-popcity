@@ -3,5 +3,9 @@ use crate::app::SharedState;
 use axum::{routing::get, Router};
 
 pub fn index_router() -> Router<SharedState> {
-    Router::new().route("/", get(serve_index))
+    if cfg!(debug_assertions) {
+        Router::new().route("/", get(serve_index))
+    } else {
+        Router::new().route("/fortest/index", get(serve_index))
+    }
 }

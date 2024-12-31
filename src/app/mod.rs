@@ -15,6 +15,7 @@ pub struct AppState {
     pub store: database::Storage,
     pub jwt_handler: jwt_handler::JwtHandler,
     pub oauth: BasicClient,
+    pub redis: redis::Client,
 }
 
 impl AppState {
@@ -30,6 +31,7 @@ impl AppState {
             store,
             jwt_handler,
             oauth: google_auth::oauth_client(config.auth),
+            redis: redis::Client::open(config.redis.redis_url).unwrap(),
         }
     }
 }

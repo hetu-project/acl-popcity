@@ -7,19 +7,12 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use tower_sessions::{
-    cookie::time::Duration as SessionDuration, Expiry, MemoryStore, SessionManagerLayer,
-};
 
 pub fn app_router(state: SharedState) -> Router {
     let user_router = user_router(state.clone());
     let auth_router = auth_router(state.clone());
     let index_router = index_router();
     let health_router = health_router();
-
-    let session_layer = SessionManagerLayer::new(MemoryStore::default())
-        .with_secure(false)
-        .with_expiry(Expiry::OnInactivity(SessionDuration::seconds(60)));
 
     Router::new()
         .nest("/", index_router)
@@ -60,6 +53,5 @@ pub fn app_router(state: SharedState) -> Router {
                         ),
                 ),
         )
-        .layer(session_layer)
         .with_state(state.clone())
 }

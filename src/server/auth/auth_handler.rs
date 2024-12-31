@@ -15,13 +15,9 @@ use axum::{
 };
 use oauth2::{reqwest::async_http_client, AuthorizationCode, RedirectUrl, TokenResponse};
 use reqwest::Client;
-use tower_sessions::Session;
-
-const SESSION_CSRF: &str = "CSRF_TOKEN";
 
 #[debug_handler]
 pub async fn auth_token(
-    session: Session,
     State(state): State<SharedState>,
     Json(params): Json<OAuthParams>,
 ) -> AppResult<Json<serde_json::Value>> {
@@ -32,16 +28,18 @@ pub async fn auth_token(
     let client = state
         .oauth
         .clone()
-        .set_redirect_uri(RedirectUrl::new(params.redirect_uri.unwrap().clone())?);
-    //.set_redirect_uri(RedirectUrl::new(state.config.auth.redirect_url.clone())?);
+        .set_redirect_uri(RedirectUrl::new(state.config.auth.redirect_url.clone())?);
+    //.set_redirect_uri(RedirectUrl::new(params.redirect_uri.unwrap().clone())?);
 
-    let csrf_token: String = session.get(SESSION_CSRF).await.unwrap().unwrap_or_default();
     let csrf_state = params
         .state
         .ok_or(AppError::InputValidateError("Invild state".into()))?;
 
-    if csrf_token != csrf_state {
-        tracing::warn!(" compare faild: {:?}, {:?}", csrf_state, csrf_token);
+    let redis_client = RedisClient::from(state.redis.clone());
+    if let Ok(token) = redis_client.get_csrf_token(csrf_state.as_str()).await {
+        tracing::info!("got csrf token: {:?} by key: {:?}", token, csrf_state);
+    } else {
+        tracing::error!("got csrf token err: wrong state:{:?} ", csrf_state);
         return Err(AppError::InputValidateError(
             "csrf token verification error".into(),
         ));
@@ -136,7 +134,10 @@ pub async fn auth_token(
 
     tracing::info!("[auth_token] jwt token: {:?}", token);
 
-    session.remove::<String>(SESSION_CSRF).await.unwrap();
+    redis_client
+        .del_csrf_token(csrf_state.as_str())
+        .await
+        .unwrap();
 
     return Ok(Json(serde_json::json!({
         "result": {
@@ -167,20 +168,15 @@ pub async fn callback_handler(
 
 #[debug_handler]
 pub async fn get_csrf_token(
-    State(_state): State<SharedState>,
-    session: Session,
+    State(state): State<SharedState>,
 ) -> AppResult<Json<serde_json::Value>> {
-    session
-        .insert(SESSION_CSRF, gen_csrf_token())
-        .await
-        .map_err(|e| AppError::CustomError(e.to_string()))?;
-
-    let csrf_token: String = session.get(SESSION_CSRF).await.unwrap().unwrap_or_default();
-    tracing::info!("gen csrf_token {:?}", csrf_token);
+    let redis_client = RedisClient::from(state.redis.clone());
+    let token = redis_client.cache_csrf_token().await.unwrap();
+    tracing::info!("gen csrf token: {:?}", token);
 
     Ok(Json(serde_json::json!({
         "result": {
-            "csrf_token": csrf_token
+            "csrf_token": token
         }
     })))
 }
