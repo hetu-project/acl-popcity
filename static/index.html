@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Google OAuth Example</title>
+        <script src="https://apis.google.com/js/platform.js" async defer></script>
+        <script>
+            // 替换为你的客户端ID
+            var clientId = '599394777142-tqje85ei2m4o4v3kevv9pilbim2ofi59.apps.googleusercontent.com';
+                        var scope = ['profile', 'email'];
+
+                        function handleAuthResult(authResult) {
+                                        if (authResult && !authResult.error) {
+                                                        // 用户已登录
+                                                        var accessToken = authResult.access_token;
+                                                        console.log('Access Token: ' + accessToken);
+
+                                                        // 你可以在这里调用你的后端API，传递access_token
+                                                        // 例如：fetch('/your-backend-api', {
+                                                        //     method: 'POST',
+                                                        //     headers: {
+                                                        //         'Content-Type': 'application/json',
+                                                        //         'Authorization': 'Bearer ' + accessToken
+                                                        //     },
+                                                        //     body: JSON.stringify({ token: accessToken })
+                                                        // })
+                                                        // .then(response => response.json())
+                                                        // .then(data => console.log(data))
+                                                        // .catch(error => console.error('Error:', error));
+
+                                                        // 或者直接显示用户信息（注意：这只适用于测试，不要在生产环境中这样做）
+                                                        gapi.client.load('oauth2', 'v2', function() {
+                                                                        var request = gapi.client.oauth2.userinfo.get({
+                                                                                        'accessToken': accessToken
+                                                                                    });
+                                                                        request.execute(function(resp) {
+                                                                                        console.log(resp);
+                                                                                        document.getElementById('user-info').innerHTML = JSON.stringify(resp, null, 2);
+                                                                                    });
+                                                                    });
+                                                    } else {
+                                                                    // 处理错误
+                                                                    console.log('Authentication failed: ' + authResult.error);
+                                                                }
+                                    }
+
+                        function startApp() {
+                                        gapi.auth2.init({client_id: clientId, scope: scope}).then(function () {
+                                                        var authInstance = gapi.auth2.getAuthInstance();
+                                                        authInstance.isSignedIn.listen(handleAuthResult);
+                                                        authInstance.signIn();
+                                                    });
+                                    }
+                        function oauthSignIn() {
+                                        // Google's OAuth 2.0 endpoint for requesting an access token
+                                        var oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+
+                                        // Create <form> element to submit parameters to OAuth 2.0 endpoint.
+                                        var form = document.createElement('form');
+                                        form.setAttribute('method', 'GET'); // Send as a GET request.
+                                        form.setAttribute('action', oauth2Endpoint);
+
+                                        // Parameters to pass to OAuth 2.0 endpoint.
+                                        var params = {'client_id': '599394777142-tqje85ei2m4o4v3kevv9pilbim2ofi59.apps.googleusercontent.com',
+                                                        //'redirect_uri': 'https://nftkash.xyz/auth/callback',
+                                                        'redirect_uri': 'http://127.0.0.1:8080/auth/callback',
+                                                        'response_type': 'code',
+                                                        'scope': 'openid email profile',
+                                                        };
+
+                                        // Add form parameters as hidden input values.
+                                        for (var p in params) {
+                                                        var input = document.createElement('input');
+                                                        input.setAttribute('type', 'hidden');
+                                                        input.setAttribute('name', p);
+                                                        input.setAttribute('value', params[p]);
+                                                        form.appendChild(input);
+                                                    }
+
+                                        // Add form to page and submit it to open the OAuth 2.0 endpoint.
+                                        document.body.appendChild(form);
+                                        form.submit();
+                                    }
+
+        </script>
+    </head>
+    <body onload="oauthSignIn()">
+        <h1>Google OAuth Example</h1>
+        <div id="user-info"></div>
+    </body>
+</html>
